@@ -7,13 +7,17 @@ library(dplyr)
 library(future)
 library(devtools)
 library(harmony)
-# check the current active plan
-plan()
-# change the current plan to access parallelization
-plan(multisession, workers = 8)
+library(parallel)
+
+# Set random seed
+set.seed(888)
+
+# Check the current active plan
+?plan()
+# Change the current plan to access parallelization
+#plan(multisession, workers = )
 availableCores()
 plan()
-options(future.globals.maxSize = 7 * 1024^3)
 
 # Loading data
 brain <- LoadData("stxBrain", type = "anterior1")
@@ -23,12 +27,11 @@ str(brain)
 # Omitting empty
 brain_counts <- brain@assays$Spatial@counts
 feats <- rownames(brain_counts[rowSums(brain_counts) > 0,])
-
 ncrnas <- tolower(read.table("./ncRNAs.txt", header=TRUE, sep="	", fill=TRUE)[,2])
 ncrnas <- paste0(toupper(substr(ncrnas, 1, 1)), substr(ncrnas, 2, nchar(ncrnas)))
 ncrna_feats <- intersect(feats, ncrnas)
 ncrna_feats
-brain[["percent.mt"]] <- PercentageFeatureSet(brain, features = ncrna_feats)
+#brain[["percent.mt"]] <- PercentageFeatureSet(brain, features = ncrna_feats)
 
 # Previewing data
 ## Data preprocessing
@@ -40,27 +43,28 @@ wrap_plots(plot1, plot2)
 
 # Normalizing data with SCTransform
 # Very slow, using multisession
-f1_brain <- future(SCTransform(brain, assay = "Spatial", verbose = FALSE))
-
-saveRDS(f1_brain, file = "SCTransform_result.rds")
-
-resolved(f1_brain)
+f1_brain <- future(SCTransform(brain, assay = "Spatial", verbose = FALSE), future.seed=TRUE)
 brain <- value(f1_brain)
+str(brain)
 
 ## Gene expression visualization
 # Overlaying molecular data over tissue photo.
-SpatialFeaturePlot(brain, features = ncrna_feats)
-
-empty_feats <- c("Nron", "Tsix", "Chaer1", "Plut", "Hottip", "Hotair", "Mir155hg")
-very_low_feats <- c("Dnm3os", "Paupar", "Xist", "Rbakdn", "Hotairm1", "Carmn")
-low_feats <- c("Mhrt", "Flicr")
-
-SpatialFeaturePlot(brain, features = very_low_feats)
-
+sorted_counts <- sort(rowSums(brain_counts[ncrna_feats,]))
+split_counts <- split(sorted_counts, ceiling(seq_along(sorted_counts)/4))
+SpatialFeaturePlot(brain, features = names(split_counts[[1]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[2]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[3]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[4]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[5]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[6]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[7]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[8]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[9]]))
+SpatialFeaturePlot(brain, features = names(split_counts[[10]]))
 
 # Making plots.
-p1 <- SpatialFeaturePlot(brain, features = "Ttr", pt.size.factor = 1)
-p2 <- SpatialFeaturePlot(brain, features = "Ttr", alpha = c(0.1, 1))
+p1 <- SpatialFeaturePlot(brain, features = "Meg3", pt.size.factor = 1)
+p2 <- SpatialFeaturePlot(brain, features = "Meg3", alpha = c(0.1, 1))
 p1 + p2
 
 
@@ -81,21 +85,13 @@ SpatialDimPlot(brain, cells.highlight = CellsByIdentities(object = brain, idents
 ## Interactive plots
 ISpatialDimPlot(brain)
 
-
-ISpatialFeaturePlot(brain, features = "Ttr")
+?ISpatialFeaturePlot
+ISpatialFeaturePlot(brain, feature = "Meg3")
 
 LinkedDimPlot(brain)
 
 f_des <- f_markers <- future(FindMarkers(brain, ident.1 = 5, ident.2 = 6))
 resolved(f_des)
-
-
-saveRDS(f_markers, file = "markers.rds")
-saveRDS(brain, file = "brain_before_finding_spatial_features.rds")
-
-
-brain <- readRDS("brain_before_finding_spatial_features.rds")
-des <- markers <- value(readRDS("markers.rds"))
 
 SpatialFeaturePlot(object = brain, features = rownames(des <- markers)[1:3], alpha = c(0.1, 1), ncol = 3)
 

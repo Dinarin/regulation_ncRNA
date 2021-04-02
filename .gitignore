@@ -1,2 +1,4 @@
 /*.rds
 /test.R
+/*.RData
+/setup.R

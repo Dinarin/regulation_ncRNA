@@ -4,28 +4,38 @@ library(SeuratData)
 library(ggplot2)
 library(patchwork)
 library(dplyr)
+library(future)
+library(devtools)
+library(harmony)
+
+# check the current active plan
+plan()
+# change the current plan to access parallelization
+plan(multisession, workers = 8)
+availableCores()
+plan()
+options(future.globals.maxSize = 7 * 1024^3)
+
+# Loading data
+brain <- LoadData("stxBrain", type = "anterior1")
 
 # Previewing data
-preview_seurat_data <- function(dtype, dfeatures, dataname = "stxBrain", assaytype = "Spatial") {
-    sdata <- LoadData("stxBrain", type = dtype)  # ???
-    plot1 <- VlnPlot(sdata, features = dfeatures, pt.size = 0.1) + NoLegend()  # Single cell violin plot
-    # Two plots to see whether we should normalize data or not.
-    plot2 <- SpatialFeaturePlot(sdata, features = dfeatures) + theme(legend.position = "right")  
-    X11()
-    print(wrap_plots(plot1, plot2))
-    return(sdata)
-}
-dtypes <- c("anterior1", "anterior2", "posterior1", "posterior2")
-brain <- preview_seurat_data(dtypes[1], "nCount_Spatial")
+## Data preprocessing
+# Two plots to see whether we should normalize data or not.
+plot1 <- VlnPlot(brain, features = "nCount_Spatial", pt.size = 0.1) + NoLegend()
+plot2 <- SpatialFeaturePlot(brain, features = "nCount_Spatial") + theme(legend.position = "right")
+wrap_plots(plot1, plot2)
 
 # Normalizing data with SCTransform
-#sdata <- SCTransform(sdata, assaytype, verbose = FALSE, conserve.memory=TRUE)
-
+# Very slow, using multicore on Linux
+f1_brain <- future(SCTransform(brain, assay = "Spatial", verbose = FALSE))
+saveRDS(f1_brain, file = "SCTransform_result.rds")
+resolved(f1_brain)
+brain <- value(f1_brain)
 
 ## Gene expression visualization
 # Overlaying molecular data over tissue photo.
 SpatialFeaturePlot(brain, features = c("Hpca", "Ttr"))
-
 # Making plots.
 p1 <- SpatialFeaturePlot(brain, features = "Ttr", pt.size.factor = 1)
 p2 <- SpatialFeaturePlot(brain, features = "Ttr", alpha = c(0.1, 1))
@@ -54,14 +64,18 @@ ISpatialFeaturePlot(brain, features = "Ttr")
 
 LinkedDimPlot(brain)
 
-de <- markers <- FindMarkers(brain, ident.1 = 5, ident.2 = 6)
-SpatialFeaturePlot(object = brain, features = rownames(de <- markers)[1:3], alpha = c(0.1, 1), ncol = 3)
+f_des <- f_markers <- future(FindMarkers(brain, ident.1 = 5, ident.2 = 6))
+resolved(f_des)
+saveRDS(f_markers, file = "markers.rds")
+saveRDS(brain, file = "brain_before_finding_spatial_features.rds")
+des <- markers <- value(f_des)
+SpatialFeaturePlot(object = brain, features = rownames(des <- markers)[1:3], alpha = c(0.1, 1), ncol = 3)
 
 
-
-brain <- FindSpatiallyVariableFeatures(brain, assay = "SCT", features = VariableFeatures(brain)[1:1000],
-				           selection.method = "markvariogram")
-
+# Very slow, using multicore
+f3_brain <- future(FindSpatiallyVariableFeatures(brain, assay = "SCT", features = VariableFeatures(brain)[1:1000], selection.method = "markvariogram"))
+resolved(f3_brain)
+brain <- value(f3_brain)
 
 top.features <- head(SpatiallyVariableFeatures(brain, selection.method = "markvariogram"), 6)
 SpatialFeaturePlot(brain, features = top.features, ncol = 3, alpha = c(0.1, 1))
@@ -80,6 +94,15 @@ cortex <- subset(cortex, anterior1 <- imagerow > 250 & anterior1 <- imagecol > 4
 p1 <- SpatialDimPlot(cortex, crop = TRUE, label = TRUE)
 p2 <- SpatialDimPlot(cortex, crop = FALSE, label = TRUE, pt.size.factor = 1, label.size = 3)
 p1 + p2
+
+
+
+
+
+
+
+
+
 
 allen <- reference <- readRDS("./data/allen_cortex.rds")
 
@@ -154,3 +177,4 @@ plot1 <- DimPlot(slide.seq, reduction = "umap", label = TRUE)
 plot2 <- SpatialDimPlot(slide.seq, stroke = 0)
 plot1 + plot2
 SpatialDimPlot(slide.seq, cells.highlight = CellsByIdentities(object = slide.seq, idents = c(1, 6, 13)), facet.highlight = TRUE)
+

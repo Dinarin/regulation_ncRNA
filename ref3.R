@@ -10,30 +10,36 @@ library(harmony)
 # check the current active plan
 plan()
 # change the current plan to access parallelization
-plan(multisession, workers = 15)
+plan(multisession, workers = 8)
 availableCores()
 plan()
-options(future.globals.maxSize = 6 * 1024^3)
+options(future.globals.maxSize = 7 * 1024^3)
 
 # Loading data
 brain <- LoadData("stxBrain", type = "anterior1")
+str(brain)
 
-# Finding ncRNAs
-feats <- rownames(x = brain)
-ncrnas <- read.table("./ncRNAs.txt", header=TRUE, sep="	", fill=TRUE)[,2]
-ncrnas <- tolower(ncrnas)
+# Finding ncRNA features
+# Omitting empty
+brain_counts <- brain@assays$Spatial@counts
+feats <- rownames(brain_counts[rowSums(brain_counts) > 0,])
+
+ncrnas <- tolower(read.table("./ncRNAs.txt", header=TRUE, sep="	", fill=TRUE)[,2])
 ncrnas <- paste0(toupper(substr(ncrnas, 1, 1)), substr(ncrnas, 2, nchar(ncrnas)))
 ncrna_feats <- intersect(feats, ncrnas)
 ncrna_feats
+brain[["percent.mt"]] <- PercentageFeatureSet(brain, features = ncrna_feats)
+
 # Previewing data
 ## Data preprocessing
 # Two plots to see whether we should normalize data or not.
+VlnPlot(brain, features = c("nCount_Spatial", "percent.mt"), ncol = 2)
 plot1 <- VlnPlot(brain, features = "nCount_Spatial", pt.size = 0.1) + NoLegend()
 plot2 <- SpatialFeaturePlot(brain, features = "nCount_Spatial") + theme(legend.position = "right")
 wrap_plots(plot1, plot2)
 
 # Normalizing data with SCTransform
-# Very slow, using multicore on Linux
+# Very slow, using multisession
 f1_brain <- future(SCTransform(brain, assay = "Spatial", verbose = FALSE))
 
 saveRDS(f1_brain, file = "SCTransform_result.rds")
@@ -43,7 +49,15 @@ brain <- value(f1_brain)
 
 ## Gene expression visualization
 # Overlaying molecular data over tissue photo.
-SpatialFeaturePlot(brain, features = c("Hpca", "Ttr"))
+SpatialFeaturePlot(brain, features = ncrna_feats)
+
+empty_feats <- c("Nron", "Tsix", "Chaer1", "Plut", "Hottip", "Hotair", "Mir155hg")
+very_low_feats <- c("Dnm3os", "Paupar", "Xist", "Rbakdn", "Hotairm1", "Carmn")
+low_feats <- c("Mhrt", "Flicr")
+
+SpatialFeaturePlot(brain, features = very_low_feats)
+
+
 # Making plots.
 p1 <- SpatialFeaturePlot(brain, features = "Ttr", pt.size.factor = 1)
 p2 <- SpatialFeaturePlot(brain, features = "Ttr", alpha = c(0.1, 1))

@@ -12,16 +12,8 @@ library(parallel)
 # Set random seed
 set.seed(888)
 
-# Check the current active plan
-?plan()
-# Change the current plan to access parallelization
-#plan(multisession, workers = )
-availableCores()
-plan()
-
 # Loading data
 brain <- LoadData("stxBrain", type = "anterior1")
-str(brain)
 
 # Finding ncRNA features
 # Omitting empty
@@ -31,7 +23,7 @@ ncrnas <- tolower(read.table("./ncRNAs.txt", header=TRUE, sep="	", fill=TRUE)[,2
 ncrnas <- paste0(toupper(substr(ncrnas, 1, 1)), substr(ncrnas, 2, nchar(ncrnas)))
 ncrna_feats <- intersect(feats, ncrnas)
 ncrna_feats
-#brain[["percent.mt"]] <- PercentageFeatureSet(brain, features = ncrna_feats)
+brain[["percent.mt"]] <- PercentageFeatureSet(brain, features = ncrna_feats)
 
 # Previewing data
 ## Data preprocessing
@@ -44,6 +36,7 @@ wrap_plots(plot1, plot2)
 # Normalizing data with SCTransform
 # Very slow, using multisession
 f1_brain <- future(SCTransform(brain, assay = "Spatial", verbose = FALSE), future.seed=TRUE)
+readRDS("SCTransform_result.rds")
 brain <- value(f1_brain)
 str(brain)
 

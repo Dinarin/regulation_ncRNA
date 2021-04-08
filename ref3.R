@@ -10,7 +10,6 @@ library(parallel)
 
 # Set random seed
 set.seed(888)
-Avail
 # Loading data
 brain <- LoadData("stxBrain", type = "anterior1")
 
@@ -81,10 +80,10 @@ ISpatialFeaturePlot(brain, feature = "Meg3")
 
 LinkedDimPlot(brain)
 
-des <- markers <- FindMarkers(brain, ident.1 = 5, ident.2 = 6)
-saveRDS(des, "des.rds")
+de_markers <- FindMarkers(brain, ident.1 = 5, ident.2 = 6)
+saveRDS(des, "de_markers.rds")
 
-SpatialFeaturePlot(object = brain, features = rownames(des <- markers)[1:3], alpha = c(0.1, 1), ncol = 3)
+SpatialFeaturePlot(object = brain, features = rownames(de_markers)[1:3], alpha = c(0.1, 1), ncol = 3)
 
 
 brain <- FindSpatiallyVariableFeatures(brain, assay = "SCT", features = VariableFeatures(brain)[1:1000], selection.method = "markvariogram")
@@ -94,15 +93,17 @@ top.features <- head(SpatiallyVariableFeatures(brain, selection.method = "markva
 SpatialFeaturePlot(brain, features = top.features, ncol = 3, alpha = c(0.1, 1))
 
 cortex <- subset(brain, idents = c(1, 2, 3, 4, 6, 7))
+saveRDS(cortex, "cortex1.rds")
 
 # now remove additional cells, use SpatialDimPlots to visualize what to remove
-# SpatialDimPlot(cortex,cells.highlight = WhichCells(cortex, expression = image <- imagerow > 400 |
-# image <- imagecol < 150))
-cortex <- subset(cortex, anterior1 <- imagerow > 400 | anterior1 <- imagecol < 150, invert = TRUE)
-cortex <- subset(cortex, anterior1 <- imagerow > 275 & anterior1 <- imagecol > 370, invert = TRUE)
-cortex <- subset(cortex, anterior1 <- imagerow > 250 & anterior1 <- imagecol > 440, invert = TRUE)
+SpatialDimPlot(cortex,cells.highlight = WhichCells(cortex, expression = image_imagerow > 400 | image_imagecol < 150))
+cortex <- subset(cortex, anterior1_imagerow > 400 | anterior1_imagecol < 150, invert = TRUE)
+cortex <- subset(cortex, anterior1_imagerow > 275 & anterior1_imagecol > 370, invert = TRUE)
+cortex <- subset(cortex, anterior1_imagerow > 250 & anterior1_imagecol > 440, invert = TRUE)
 
 
 p1 <- SpatialDimPlot(cortex, crop = TRUE, label = TRUE)
 p2 <- SpatialDimPlot(cortex, crop = FALSE, label = TRUE, pt.size.factor = 1, label.size = 3)
 p1 + p2
+
+saveRDS(cortex, "cortex2.rds")

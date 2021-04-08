@@ -6,12 +6,11 @@ library(patchwork)
 library(dplyr)
 library(future)
 library(devtools)
-library(harmony)
 library(parallel)
 
 # Set random seed
 set.seed(888)
-
+Avail
 # Loading data
 brain <- LoadData("stxBrain", type = "anterior1")
 
@@ -35,9 +34,8 @@ wrap_plots(plot1, plot2)
 
 # Normalizing data with SCTransform
 # Very slow, using multisession
-f1_brain <- future(SCTransform(brain, assay = "Spatial", verbose = FALSE), future.seed=TRUE)
-readRDS("SCTransform_result.rds")
-brain <- value(f1_brain)
+brain <- SCTransform(brain, assay = "Spatial", verbose = FALSE)
+brain <- f1_brain
 str(brain)
 
 ## Gene expression visualization
@@ -59,7 +57,7 @@ SpatialFeaturePlot(brain, features = names(split_counts[[10]]))
 p1 <- SpatialFeaturePlot(brain, features = "Meg3", pt.size.factor = 1)
 p2 <- SpatialFeaturePlot(brain, features = "Meg3", alpha = c(0.1, 1))
 p1 + p2
-
+saveRDS(brain, "pre_reduction.rds")
 
 ## Dimensionality reduction, clustering, and visualization
 # Dimensionality reduction
@@ -83,30 +81,26 @@ ISpatialFeaturePlot(brain, feature = "Meg3")
 
 LinkedDimPlot(brain)
 
-f_des <- f_markers <- future(FindMarkers(brain, ident.1 = 5, ident.2 = 6))
-resolved(f_des)
+des <- markers <- FindMarkers(brain, ident.1 = 5, ident.2 = 6)
+saveRDS(des, "des.rds")
 
 SpatialFeaturePlot(object = brain, features = rownames(des <- markers)[1:3], alpha = c(0.1, 1), ncol = 3)
 
 
-# Very slow, using future
-f3_brain <- future(FindSpatiallyVariableFeatures(brain, assay = "SCT", features = VariableFeatures(brain)[1:1000], selection.method = "markvariogram"))
-resolved(f3_brain)
-brain <- value(f3_brain)
+brain <- FindSpatiallyVariableFeatures(brain, assay = "SCT", features = VariableFeatures(brain)[1:1000], selection.method = "markvariogram")
+saveRDS(brain, "find_spatially_variable_features_brain.rds")
 
-f_top.features <- future(head(SpatiallyVariableFeatures(brain, selection.method = "markvariogram"), 6))
-top.features <- value(f_top.features)
+top.features <- head(SpatiallyVariableFeatures(brain, selection.method = "markvariogram"), 6)
 SpatialFeaturePlot(brain, features = top.features, ncol = 3, alpha = c(0.1, 1))
 
 cortex <- subset(brain, idents = c(1, 2, 3, 4, 6, 7))
+
 # now remove additional cells, use SpatialDimPlots to visualize what to remove
 # SpatialDimPlot(cortex,cells.highlight = WhichCells(cortex, expression = image <- imagerow > 400 |
 # image <- imagecol < 150))
 cortex <- subset(cortex, anterior1 <- imagerow > 400 | anterior1 <- imagecol < 150, invert = TRUE)
-cortex <- subset(cortex, anterior1 <- imagerow > 275 & anterior1 <- imagecol > 370, invert =
-		  TRUE)
-cortex <- subset(cortex, anterior1 <- imagerow > 250 & anterior1 <- imagecol > 440, invert =
-		  TRUE)
+cortex <- subset(cortex, anterior1 <- imagerow > 275 & anterior1 <- imagecol > 370, invert = TRUE)
+cortex <- subset(cortex, anterior1 <- imagerow > 250 & anterior1 <- imagecol > 440, invert = TRUE)
 
 
 p1 <- SpatialDimPlot(cortex, crop = TRUE, label = TRUE)

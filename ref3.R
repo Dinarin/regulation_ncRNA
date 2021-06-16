@@ -12,7 +12,6 @@ library(parallel)
 set.seed(888)
 # Loading data
 brain <- LoadData("stxBrain", type = "anterior1")
-
 # Finding ncRNA features
 # Omitting empty
 brain_counts <- brain@assays$Spatial@counts

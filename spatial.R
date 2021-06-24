@@ -55,29 +55,59 @@ brain <- brain[, brain$nFeature_Spatial > 500 & brain$mt.percent < 25 &
 
 # Replotting data
 SpatialFeaturePlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent", "hb.percent")) %>%
-  ggsave(file = "overview.svg", plot = ., width = 14, height = 28)
+  ggsave(file = "overview_filtered.svg", plot = ., width = 14, height = 28)
 
 
 ## Viewing genes with most counts
 brain_counts <- brain@assays$Spatial@counts
 brain_counts@x <- brain_counts@x/rep.int(colSums(brain_counts), diff(brain_counts@p))
 most_expressed <- order(Matrix::rowSums(brain_counts), decreasing = T)[20:1]
+svg("most_counts.svg")
 boxplot(t(as.matrix(brain_counts[most_expressed, ])), cex = 0.1, las = 1, xlab = "% total count per cell",
-    col = (scales::hue_pal())(20)[20:1], horizontal = TRUE) %>%
-  ggsave(file = "most_counts.svg", plot = .)
+    col = (scales::hue_pal())(20)[20:1], horizontal = TRUE)
+dev.off()
 
 # Viewing ncRNAs with most counts
 brain_ncrna <- subset(brain, features = brain_ncrna_feats)
 ncrna_counts <- brain_ncrna@assays$Spatial@counts
 ncrna_counts@x <- ncrna_counts@x/rep.int(colSums(ncrna_counts), diff(ncrna_counts@p))
 most_expressed_ncrna <- order(Matrix::rowSums(ncrna_counts), decreasing = T)[20:1]
-boxplot(t(as.matrix(ncrna_counts[most_expressed_ncrna, ])), cex = 0.1, las = 1,
-        xlab = "% total count per cell",
-        col = (scales::hue_pal())(20)[20:1], horizontal = TRUE) %>%
-  ggsave(file = "ncrna_counts.svg", plot = .)
+svg("ncrna_counts.svg")
+ncrna_boxplot <- boxplot(t(as.matrix(ncrna_counts[most_expressed_ncrna, ])),
+                         cex = 0.1, las = 1, xlab = "% total count per cell",
+                         col = (scales::hue_pal())(20)[20:1], horizontal = TRUE)
+dev.off()
+
+# Filtering genes
+brain <- brain[!grepl("Bc1", rownames(brain)), ]
+
+brain <- brain[!grepl("^mt-", rownames(brain)), ]
+
+norm_brain <- NormalizeData(brain)
+# Finding variable features
+norm_brain <- FindVariableFeatures(norm_brain, selection.method = "vst", nfeatures = 2000)
+
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(norm_brain), 10)
+top10_ncrna <- intersect(VariableFeatures(norm_brain), norm_brain_ncrna_feats)
+
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(brain)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2 
+  ggsave(file = "variable_features.svg", plot = ., width = 14, height = 7)
 
 
-## Integrating data
+SpatialFeaturePlot(brain, features = c("Hpca", "Ttr")) %>%
+  ggsave(file = "spatial_features.svg", plot = ., width = 14, height = 7)
+
+
+DimPlot(brain, reduction = "umap", group.by = c("ident", "orig.ident"))
+
+SpatialDimPlot(brain)
+
+
+## Clustering integrated data
 brain_list <- list(anterior1 = brain_a1, posterior1 = brain_p1)
 
 # Running SCT on both datasets
@@ -95,137 +125,50 @@ brain_integrated <- IntegrateData(anchorset = brain_anchors, normalization.metho
 rm(brain_anchors, brain_list)
 gc()
 
+brain_integrated <- RunPCA(brain_integrated, verbose = FALSE)
+brain_integrated <- FindNeighbors(brain_integrated, dims = 1:30)
+brain_integrated <- FindClusters(brain_integrated, verbose = FALSE)
+brain_integrated <- RunUMAP(brain_integrated, dims = 1:30)
+
+DimPlot(brain_integrated, reduction = "umap", group.by = c("ident", "orig.ident")) %>%
+  ggsave(file = "integrated_clusters.svg", plot = ., width = 14, height = 7)
+
+SpatialDimPlot(brain_integrated) %>%
+  ggsave(file = "integrated_clusters_spatial.svg", plot = ., width = 14, height = 7)
+
 # Overlaying molecular data over tissue photo.
-a1_sorted_counts <- sort(rowSums(brain_a1[["Spatial"]]@counts[brain_a1_ncrna_feats,]))
-a1_split_counts <- split(sorted_counts, ceiling(seq_along(sorted_counts)/4))
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[1]])) %>%
-    ggsave(file="a1_ncRNA1.svg", plot=.)
+sorted_counts <- sort(rowSums(brain_integrated[["Spatial"]]@counts[brain_ncrna_feats,]), decreasing = TRUE)
+brain_split_counts <- split(sorted_counts, ceiling(seq_along(sorted_counts)/4))
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[1]])) %>%
+    ggsave(file="ncRNA1.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[2]])) %>%
-    ggsave(file="a1_ncRNA2.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[2]])) %>%
+    ggsave(file="ncRNA2.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[3]])) %>%
-    ggsave(file="a1_ncRNA3.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[3]])) %>%
+    ggsave(file="ncRNA3.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[4]])) %>%
-    ggsave(file="a1_ncRNA4.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[4]])) %>%
+    ggsave(file="ncRNA4.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[5]])) %>%
-    ggsave(file="a1_ncRNA5.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[5]])) %>%
+    ggsave(file="ncRNA5.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[6]])) %>%
-    ggsave(file="a1_ncRNA6.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[6]])) %>%
+    ggsave(file="ncRNA6.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[7]])) %>%
-    ggsave(file="a1_ncRNA7.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[7]])) %>%
+    ggsave(file="ncRNA7.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[8]])) %>%
-    ggsave(file="a1_ncRNA8.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[8]])) %>%
+    ggsave(file="ncRNA8.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[9]])) %>%
-    ggsave(file="a1_ncRNA9.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[9]])) %>%
+    ggsave(file="ncRNA9.svg", plot=., width = 14, height = 28)
 
-SpatialFeaturePlot(brain_a1, features = names(a1_split_counts[[10]])) %>%
-    ggsave(file="a1_ncRNA10.svg", plot=.)
+SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[10]])) %>%
+    ggsave(file="ncRNA10.svg", plot=., width = 14, height = 28)
 
-p1_sorted_counts <- sort(rowSums(brain_p1[["Spatial"]]@counts[brain_p1_ncrna_feats,]))
-p1_split_counts <- split(p1_sorted_counts, ceiling(seq_along(p1_sorted_counts)/4))
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[1]])) %>%
-    ggsave(file="p1_ncRNA1.svg", plot=.)
-
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[2]])) %>%
-    ggsave(file="p1_ncRNA2.svg", plot=.)
-
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[3]])) %>%
-    ggsave(file="p1_ncRNA3.svg", plot=.)
-
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[4]])) %>%
-    ggsave(file="p1_ncRNA4.svg", plot=.)
-
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[5]])) %>%
-    ggsave(file="p1_ncRNA5.svg", plot=.)
-?SpatialFeaturePlot
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[6]])) %>%
-    ggsave(file="p1_ncRNA6.svg", plot=.)
-
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[7]])) %>%
-    ggsave(file="p1_ncRNA7.svg", plot=.)
-
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[8]])) %>%
-    ggsave(file="p1_ncRNA8.svg", plot=.)
-
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[9]])) %>%
-    ggsave(file="p1_ncRNA9.svg", plot=.)
-
-SpatialFeaturePlot(brain_p1, features = names(p1_split_counts[[10]])) %>%
-    ggsave(file="p1_ncRNA10.svg", plot=.)
-
-
-# Making plots.
-p1 <- SpatialFeaturePlot(brain, features = "Meg3", pt.size.factor = 1)
-p2 <- SpatialFeaturePlot(brain, features = "Meg3", alpha = c(0.2, 1))
-p1 + p2 %>%
-    ggsave(file="Meg3.svg", plot=.)
-load("after_SCT.RData")
-
-## Dimensionality reduction, clustering, and visualization
-# Dimensionality reduction
-?RunPCA
-??svd
-brain <- RunSVD(brain, assay = "SCT", features = ncrna_feats, verbose = FALSE)
-brain <- FindNeighbors(brain, reduction = "pca", dims = 1:30)
-brain <- FindClusters(brain, verbose = FALSE)
-brain <- RunUMAP(brain, reduction = "pca", dims = 1:30)
-
-# Visualizing the results of clustering
-p1 <- DimPlot(brain, reduction = "umap", label = TRUE)
-p2 <- SpatialDimPlot(brain, label = TRUE, label.size = 3)
-wrap_plots(p1 + p2) %>%
-    ggsave(file="clusters.svg", plot=., width=12, height=6)
 # Singling out clusters
-SpatialDimPlot(brain, cells.highlight = CellsByIdentities(object = brain, idents = c(2, 1, 4, 3, 5, 8)), facet.highlight = TRUE, ncol = 3) %>%
+SpatialDimPlot(brain_integrated, cells.highlight = CellsByIdentities(object = brain_integrated, idents = c(2, 1, 4, 3, 5, 8)), facet.highlight = TRUE, ncol = 3) %>%
     ggsave(file="SDplot.svg", plot=.)
-
-## Interactive plots
-ISpatialDimPlot(brain)
-
-?ISpatialFeaturePlot
-ISpatialFeaturePlot(brain, feature = "Meg3")
-
-LinkedDimPlot(brain)
-
-de_markers <- FindMarkers(brain, ident.1 = 5, ident.2 = 6)
-saveRDS(des, "de_markers.rds")
-de_markers <- readRDS("markers.rds")
-
-SpatialFeaturePlot(object = brain, features = rownames(de_markers)[1:3], alpha = c(0.1, 1), ncol = 3) %>%
-    ggsave(file="SFmarkers_plot.svg", plot=.)
-
-
-brain <- FindSpatiallyVariableFeatures(brain, assay = "SCT", features = VariableFeatures(brain)[1:1000], selection.method = "markvariogram")
-saveRDS(brain, "find_spatially_variable_features_brain.rds")
-brain <- readRDS("find_features.rds")
-
-top.features <- head(SpatiallyVariableFeatures(brain, selection.method = "markvariogram"), 6)
-
-SpatialFeaturePlot(brain, features = top.features, ncol = 3, alpha = c(0.1, 1)) %>%
-ggsave(file="SFplot.svg", plot=.)
-
-
-cortex <- subset(brain, idents = c(1, 2, 3, 4, 6, 7))
-saveRDS(cortex, "cortex1.rds")
-cortex <- readRDS("cortex1.rds")
-
-# now remove additional cells, use SpatialDimPlots to visualize what to remove
-#SpatialDimPlot(cortex, cells.highlight = WhichCells(cortex, expression = image_imagerow > 400 | image_imagecol < 150))
-cortex <- subset(cortex, anterior1_imagerow > 400 | anterior1_imagecol < 150, invert = TRUE)
-cortex <- subset(cortex, anterior1_imagerow > 275 & anterior1_imagecol > 370, invert = TRUE)
-cortex <- subset(cortex, anterior1_imagerow > 250 & anterior1_imagecol > 440, invert = TRUE)
-
-
-p1 <- SpatialDimPlot(cortex, crop = TRUE, label = TRUE)
-p2 <- SpatialDimPlot(cortex, crop = FALSE, label = TRUE, pt.size.factor = 1, label.size = 3)
-p1 + p2 %>%
-ggsave(file="cortex_plot.svg", plot=.)
-
-saveRDS(cortex, "cortex2.rds")

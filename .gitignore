@@ -1,8 +1,7 @@
 /*.rds
 /*.RData
 /setup.R
-/ncRNAs.txt
 /.Rhistory
 /*.swp
-/whole_genome
 /*.svg
+/Data/*.rds

@@ -3,5 +3,7 @@
 /setup.R
 /.Rhistory
 /*.swp
+<<<<<<< HEAD
 /*.svg
 /Data/*.rds
+>>>>>>> 600c68ad7ba807aa76afad95f1a671022a05871d

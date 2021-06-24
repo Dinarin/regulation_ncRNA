@@ -10,7 +10,10 @@ library(future)
 library(devtools)
 library(parallel)
 library(svglite)
+<<<<<<< HEAD
 
+=======
+>>>>>>> 600c68ad7ba807aa76afad95f1a671022a05871d
 library(Signac)
 
 # Set random seed
@@ -22,6 +25,7 @@ plan("multiprocess", workers = 4)
 # Loading data
 brain_a1 <- LoadData("stxBrain", type = "anterior1")
 brain_p1 <- LoadData("stxBrain", type = "posterior1")
+<<<<<<< HEAD
 brain <- merge(brain_a1, brain_p1)
 
 brain <- PercentageFeatureSet(brain, "^mt-", col.name = "mt.percent")
@@ -32,6 +36,8 @@ VlnPlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent",
 
 SpatialFeaturePlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent", "hb.percent"))
 # Reading ncRNA features
+=======
+>>>>>>> 600c68ad7ba807aa76afad95f1a671022a05871d
 ncrnas <- tolower(read.table("./ncRNAs.txt", header=TRUE, sep="	", fill=TRUE)[,2])
 ncrnas <- paste0(toupper(substr(ncrnas, 1, 1)), substr(ncrnas, 2, nchar(ncrnas)))
 

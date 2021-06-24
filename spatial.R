@@ -28,13 +28,17 @@ brain <- merge(brain_a1, brain_p1)
 brain <- PercentageFeatureSet(brain, "^mt-", col.name = "mt.percent")
 brain <- PercentageFeatureSet(brain, "^Hb.*-", col.name = "hb.percent")
 
-VlnPlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent",
-                                "hb.percent"), pt.size = 0.1, ncol = 2) + NoLegend()
+vlnplots <- VlnPlot(brain, features = c("nCount_Spatial", "nFeature_Spatial",
+                                        "mt.percent", "hb.percent"),
+                                        pt.size = 0.1, ncol = 2) + NoLegend()
+vlnplots %>%
+  ggsave(file = "vlnplots.svg", plot = ., width = 14, height = 14)
 
-SpatialFeaturePlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent", "hb.percent"))
+SpatialFeaturePlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent", "hb.percent")) %>%
+  ggsave(file = "overview.svg", plot = ., width = 14, height = 28)
 
 # Reading ncRNA features
-ncrnas <- tolower(read.table("./ncRNAs.txt", header=TRUE, sep="	", fill=TRUE)[,2])
+ncrnas <- tolower(read.table("./Data/ncRNAs.txt", header=TRUE, sep="	", fill=TRUE)[,2])
 ncrnas <- paste0(toupper(substr(ncrnas, 1, 1)), substr(ncrnas, 2, nchar(ncrnas)))
 
 # Omitting empty
@@ -43,23 +47,35 @@ finding_relevant_feats <- function (brain_data, target_feats) {
   feats <- intersect(rownames(brain_counts), target_feats)
   return(feats)
 }
+brain_ncrna_feats <- finding_relevant_feats(brain, ncrnas)
 
-brain_a1_ncrna_feats <- finding_relevant_feats(brain_a1, ncrnas)
-brain_p1_ncrna_feats <- finding_relevant_feats(brain_p1, ncrnas)
+# Filtering data
+brain <- brain[, brain$nFeature_Spatial > 500 & brain$mt.percent < 25 &
+              brain$hb.percent < 20]
 
-## Previewing data
-# Data preprocessing
-# Two plots to see whether we should normalize data or not.
+# Replotting data
+SpatialFeaturePlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent", "hb.percent")) %>%
+  ggsave(file = "overview.svg", plot = ., width = 14, height = 28)
 
-plot1 <- VlnPlot(brain_a1, features = "nCount_Spatial", pt.size = 0.1) + NoLegend()
-plot2 <- SpatialFeaturePlot(brain_a1, features = "nCount_Spatial")
-wrap_plots(plot1, plot2) %>%
-  ggsave(file="a1_vlnplot.svg", plot=.)
 
-plot1 <- VlnPlot(brain_p1, features = "nCount_Spatial", pt.size = 0.1) + NoLegend()
-plot2 <- SpatialFeaturePlot(brain_p1, features = "nCount_Spatial")
-wrap_plots(plot1, plot2) %>%
-  ggsave(file="p1_vlnplot.svg", plot=.)
+## Viewing genes with most counts
+brain_counts <- brain@assays$Spatial@counts
+brain_counts@x <- brain_counts@x/rep.int(colSums(brain_counts), diff(brain_counts@p))
+most_expressed <- order(Matrix::rowSums(brain_counts), decreasing = T)[20:1]
+boxplot(t(as.matrix(brain_counts[most_expressed, ])), cex = 0.1, las = 1, xlab = "% total count per cell",
+    col = (scales::hue_pal())(20)[20:1], horizontal = TRUE) %>%
+  ggsave(file = "most_counts.svg", plot = .)
+
+# Viewing ncRNAs with most counts
+brain_ncrna <- subset(brain, features = brain_ncrna_feats)
+ncrna_counts <- brain_ncrna@assays$Spatial@counts
+ncrna_counts@x <- ncrna_counts@x/rep.int(colSums(ncrna_counts), diff(ncrna_counts@p))
+most_expressed_ncrna <- order(Matrix::rowSums(ncrna_counts), decreasing = T)[20:1]
+boxplot(t(as.matrix(ncrna_counts[most_expressed_ncrna, ])), cex = 0.1, las = 1,
+        xlab = "% total count per cell",
+        col = (scales::hue_pal())(20)[20:1], horizontal = TRUE) %>%
+  ggsave(file = "ncrna_counts.svg", plot = .)
+
 
 ## Integrating data
 brain_list <- list(anterior1 = brain_a1, posterior1 = brain_p1)

@@ -24,6 +24,7 @@ brain_a1 <- LoadData("stxBrain", type = "anterior1")
 brain_p1 <- LoadData("stxBrain", type = "posterior1")
 brain <- merge(brain_a1, brain_p1)
 
+# Calculating mitochondrial and hemoglobine genes percentage
 brain <- PercentageFeatureSet(brain, "^mt-", col.name = "mt.percent")
 brain <- PercentageFeatureSet(brain, "^Hb.*-", col.name = "hb.percent")
 
@@ -31,6 +32,7 @@ VlnPlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent",
                                 "hb.percent"), pt.size = 0.1, ncol = 2) + NoLegend()
 
 SpatialFeaturePlot(brain, features = c("nCount_Spatial", "nFeature_Spatial", "mt.percent", "hb.percent"))
+
 # Reading ncRNA features
 ncrnas <- tolower(read.table("./ncRNAs.txt", header=TRUE, sep="	", fill=TRUE)[,2])
 ncrnas <- paste0(toupper(substr(ncrnas, 1, 1)), substr(ncrnas, 2, nchar(ncrnas)))

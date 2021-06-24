@@ -3,5 +3,6 @@
 /setup.R
 /.Rhistory
 /*.swp
+/*.swo
 /*.svg
 /Data/*.rds

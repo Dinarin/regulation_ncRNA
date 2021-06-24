@@ -11,8 +11,6 @@ library(devtools)
 library(parallel)
 library(svglite)
 
-library(Signac)
-
 # Set random seed
 set.seed(888)
 
@@ -89,22 +87,18 @@ norm_brain <- FindVariableFeatures(norm_brain, selection.method = "vst", nfeatur
 
 # Identify the 10 most highly variable genes
 top10 <- head(VariableFeatures(norm_brain), 10)
-top10_ncrna <- intersect(VariableFeatures(norm_brain), norm_brain_ncrna_feats)
+top10_ncrna <- intersect(VariableFeatures(norm_brain), brain_ncrna_feats)
 
 # plot variable features with and without labels
-plot1 <- VariableFeaturePlot(brain)
+plot1 <- VariableFeaturePlot(norm_brain)
 plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
-plot1 + plot2 
+wrap_plots(plot1 + plot2) %>%
   ggsave(file = "variable_features.svg", plot = ., width = 14, height = 7)
 
 
 SpatialFeaturePlot(brain, features = c("Hpca", "Ttr")) %>%
   ggsave(file = "spatial_features.svg", plot = ., width = 14, height = 7)
 
-
-DimPlot(brain, reduction = "umap", group.by = c("ident", "orig.ident"))
-
-SpatialDimPlot(brain)
 
 
 ## Clustering integrated data
@@ -121,9 +115,6 @@ brain_features <- SelectIntegrationFeatures(brain_list, nfeatures = 3000, verbos
 brain_list <- PrepSCTIntegration(object.list = brain_list, anchor.features = brain_features, verbose = FALSE)
 brain_anchors <- FindIntegrationAnchors(object.list = brain_list, normalization.method = "SCT", verbose = FALSE, anchor.features = brain_features)
 brain_integrated <- IntegrateData(anchorset = brain_anchors, normalization.method = "SCT", verbose = FALSE)
-
-rm(brain_anchors, brain_list)
-gc()
 
 brain_integrated <- RunPCA(brain_integrated, verbose = FALSE)
 brain_integrated <- FindNeighbors(brain_integrated, dims = 1:30)
@@ -168,7 +159,3 @@ SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[9]])) 
 
 SpatialFeaturePlot(brain_integrated, features = names(brain_split_counts[[10]])) %>%
     ggsave(file="ncRNA10.svg", plot=., width = 14, height = 28)
-
-# Singling out clusters
-SpatialDimPlot(brain_integrated, cells.highlight = CellsByIdentities(object = brain_integrated, idents = c(2, 1, 4, 3, 5, 8)), facet.highlight = TRUE, ncol = 3) %>%
-    ggsave(file="SDplot.svg", plot=.)
